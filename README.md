@@ -7,5 +7,7 @@ https://github.com/groq/groqflow/blob/main/docs/install.md
 
 Tested with GroqWare Suite version 0.9.0
 
-To run the benchmark, simply type ./bench-hostapis-matmal.py
+To run the benchmark, simply type:
+
+     $ ./bench-hostapis-matmal.py
 
