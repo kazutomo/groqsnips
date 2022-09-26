@@ -62,7 +62,8 @@ M2Tshape = M2shape[::-1]
 print(f'mode: {mode}')
 print(f'M1shape: {M1shape}')
 print(f'M2shape: {M2shape}')
-print(f'CPU per invocation [usec]: {perinvocation_cpu:.3f}')
+print(f'[[CPU]]')
+print(f'  Per invocation [usec]: {perinvocation_cpu:.3f}')
 
 def rungroqflow():
     class SQMM(torch.nn.Module):
@@ -122,6 +123,7 @@ def rungroqflowabunch():
             sys.exit(1)
 
     perinvocation = et*1e6/float(NELEMS)
+    print('[[Groqflow]]')
     print(f'  Per invocation [usec]: {perinvocation:.3f}')
 
     
@@ -150,16 +152,12 @@ def print_iop_stats(iopf):
     p = subprocess.check_output(['iop-utils', 'stats', iopf], encoding='utf8')
     cycles = int(re.findall("Program is (\S+)", p)[0])
     compute_usec = float(cycles)*1e-3
-    print(f'{iopf}:')
+    print('[[Cycles reported by iop-utils]]')
+    #print(f'{iopf}:')
     print(f'  cycles={cycles}')
     print(f'  usec={compute_usec}')
-    print()
 
 print_iop_stats(iop_file)
-
-
-
-
 
 #
 #
@@ -172,9 +170,7 @@ def rungroq_nonblocking():
     dptr = shim.next_available_device()
     dptr.open() # open and lock the card
     prog = runtime.IOProgram(iop_file)
-    print('loading')
     dptr.load(prog[0])
-    print('done loading')
     # entry points: monolihic, input, compute, output
     prog[0].entry_points[0] # monolithic EP, which includes input, compute, and output
 
@@ -267,3 +263,6 @@ def rungroq_tsprunner():
 rungroq_tsprunner()
 rungroq_nonblocking()
 rungroqflowabunch()
+
+print('Done')
+sys.exit(0)
