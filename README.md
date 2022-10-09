@@ -9,11 +9,15 @@ Tested with GroqWare Suite version 0.9.0
 
 To run the benchmark, simply type:
 
-     $ ./bench-hostapis-matmal.py
+     $ ./bench-hostapis-matmal.py N=1 M=320 L=300
+     [Params]
+     N=1
+     M=320
+     L=300
+     T=16
      prep data: ................
-     mode: sq
-     M1shape: (256, 256)
-     M2shape: (256, 256)
+     M1shape: (1, 320)
+     M2shape: (320, 300)
      [[CPU]]
        Per invocation [usec]: xxxxxx.xxx
      [[Cycles reported by iop-utils]]

@@ -1,70 +1,100 @@
 #!/usr/bin/env python
-
 #
-# benchmarking different host APIs (groqflow, tsprunner, and groq API)
+# This program measures the latency between different host APIs:
+# groqflow, tsprunner, and groq API.
+#
+# It repeats a NxM*MxL matrix multiply operation a T times.  The
+# default setting is N=M=L=320 and T=16. The datatype is 16 bits
+#
+# To change the matrix size:
+#
+# python bench-hostapi-latency.py N=1 M=1000 L=2 T=20
 #
 # Kazutomo Yoshii <kazutomo.yoshii@gmail.com>
 #
-
-import groq.api as g
-import groq.runner.tsp as tsp
-import groq.api.nn as nn
-from groqflow import groqit
 
 import torch
 import numpy as np
 import time, sys, os, re
 import subprocess
 
+#
+# default settings
+#
+N=320
+M=320
+L=320
+T=16
+
+opdict = {}
+
+if len(sys.argv) > 0:
+    for s in sys.argv[1:]:
+        m = re.search(r"([NMLT])=([0-9]+)", s)
+        if m:
+           opdict[m.group(1)] = int(m.group(2))
+
+if 'N' in opdict:
+    N = opdict['N']
+if 'M' in opdict:
+    M = opdict['M']
+if 'L' in opdict:
+    L = opdict['L']
+if 'T' in opdict:
+    T = opdict['T']
 
 #
-# Preparing data
-#
-NELEMS = 16 # args
-mode = 'sq'
+print(f"[Params]")
+print(f"N={N}")
+print(f"M={M}")
+print(f"L={L}")
+print(f"T={T}")
 
-if mode == 'sq':
-    S=0
-    N=256   # args
-    M1shape = (N, N)
-    M2shape = (N, N)
-    m1_data = []
-    m2_data = []
-    m2t_data = []
-    oracle_data = []
-    cpu_ets_usec = []
-    print('prep data: ', end='')
-    for i in range(0, NELEMS):
-        #m1 = np.random.rand(N, N).astype(np.float16)
-        m1 = np.identity(N).astype(np.float16)
-        m2 = np.random.rand(N, N).astype(np.float16)
-        #m2.fill(float(i))
-        m2t = m2.transpose()
-        m2t = m2t.copy(order='C')
-        m1_data.append(m1)
-        m2_data.append(m2)
-        m2t_data.append(m2t)
-        st = time.time()
-        otmp = np.matmul(m1, m2, dtype=np.float16)
-        et = time.time() - st
-        cpu_ets_usec.append(et*1e6)
-        oracle_data.append(otmp)
-        print('.', end='')
-    print()
-    perinvocation_cpu = np.mean(cpu_ets_usec)
-else:
-    print('Unsupported mode: {mode}')
-    sys.exit(0)
+NELEMS = T # use the old variable name
+
+M1shape = (N, M)
+M2shape = (M, L) # non-transposed shape
+m1_data = []
+m2_data = []
+m2t_data = []
+oracle_data = []
+cpu_ets_usec = []
+print('prep data: ', end='')
+for i in range(0, NELEMS):
+    m1 = np.random.rand(N, M).astype(np.float16)
+    m2 = np.random.rand(M, L).astype(np.float16)
+    m2t = m2.transpose()
+    m2t = m2t.copy(order='C')
+    m1_data.append(m1)
+    m2_data.append(m2)
+    m2t_data.append(m2t)
+    st = time.time()
+    otmp = np.matmul(m1, m2, dtype=np.float16)
+    et = time.time() - st
+    cpu_ets_usec.append(et*1e6)
+    oracle_data.append(otmp)
+    print('.', end='')
+print()
+
+perinvocation_cpu = np.mean(cpu_ets_usec)
 
 M1Tshape = M1shape[::-1]
 M2Tshape = M2shape[::-1]
 
-print(f'mode: {mode}')
 print(f'M1shape: {M1shape}')
 print(f'M2shape: {M2shape}')
 print(f'[[CPU]]')
 print(f'  Per invocation [usec]: {perinvocation_cpu:.3f}')
 
+#
+#
+#
+import groq.api as g
+import groq.runner.tsp as tsp
+import groq.api.nn as nn
+from groqflow import groqit
+
+# not used
 def rungroqflow():
     class SQMM(torch.nn.Module):
         def __init__(self):
@@ -74,7 +104,7 @@ def rungroqflow():
 
     inputs = {"a": torch.from_numpy(m1),
               "b": torch.from_numpy(m2)}
-        
+
     sqmm = SQMM()
     pytorch_outputs = sqmm(**inputs)
 
@@ -85,15 +115,16 @@ def rungroqflow():
         groq_outputs = groq_model(**inputs)
         et = time.time() - st
         ets.append(et*1e6)
-    
+
     v = np.allclose(pytorch_outputs, groq_outputs,
-                    rtol=1e-3, atol=1e-3, equal_nan=True)
+                    rtol=1e-2, atol=1e-2, equal_nan=True)
     if v == False:
         print('Error: Failed to verity')
         print(res['mm_result'])
         sys.exit(1)
     perinvocation = np.mean(ets)
     print(f'  Per invocation [usec]: {perinvocation:.3f}')
+
 
 def rungroqflowabunch():
     class SQMM(torch.nn.Module):
@@ -105,7 +136,7 @@ def rungroqflowabunch():
 
     inputsone = {"a": torch.from_numpy(m1_data[0]), "b": torch.from_numpy(m2_data[0])}
     inputs = [{"a": torch.from_numpy(a), "b": torch.from_numpy(b)} for a, b in zip(m1_data, m2_data)]
-        
+
     sqmm = SQMM()
 
     groq_model = groqit(sqmm, inputsone)
@@ -116,20 +147,17 @@ def rungroqflowabunch():
     for a, b, res in zip(m1_data, m2_data, groq_outputs):
         pytorch_outputs = sqmm(a=torch.from_numpy(a), b=torch.from_numpy(b))
         v = np.allclose(pytorch_outputs, res,
-                        rtol=1e-3, atol=1e-3, equal_nan=True)
+                        rtol=1e-2, atol=1e-2, equal_nan=True)
         if v == False:
             print('Error: Failed to verity')
-            print(res['mm_result'])
+            print(res)
             sys.exit(1)
 
     perinvocation = et*1e6/float(NELEMS)
     print('[[Groqflow]]')
     print(f'  Per invocation [usec]: {perinvocation:.3f}')
 
-    
-# FLIP
-#matrix1 = g.input_tensor(shape=M1Tshape, dtype=g.float32, name="matrix1")
-#matrix2 = g.input_tensor(shape=M2shape, dtype=g.float16, name="matrix2")
+
 matrix1 = g.input_tensor(shape=M1shape, dtype=g.float16, name="matrix1")
 matrix2 = g.input_tensor(shape=M2Tshape, dtype=g.float16, name="matrix2")
 
@@ -225,9 +253,6 @@ def rungroq_nonblocking():
             res[outt.name] = tmparr
 
         mm_result=res['mm_result']
-        # FLIP
-        #mm_result=mm_result.transpose()
-        #print(f'mm_result.dtype={mm_result.dtype}')
         v = np.allclose(oracle_data[i], res['mm_result'],
                         rtol=1e-2, atol=1e-2, equal_nan=True)
         if v == False:
@@ -251,7 +276,7 @@ def rungroq_tsprunner():
         et = time.time() - st
         ets.append(et*1e6)
         v = np.allclose(oracle_data[i], result['mm_result'],
-                        rtol=1e-1, atol=1e-1, equal_nan=True)
+                        rtol=1e-2, atol=1e-2, equal_nan=True)
         if v == False:
             print('Error: Failed to verity')
             print(res['mm_result'])
