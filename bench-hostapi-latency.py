@@ -21,9 +21,9 @@ import subprocess
 #
 # default settings
 #
-N=320
-M=320
-L=320
+N=2
+M=300
+L=300
 T=16
 
 opdict = {}
@@ -133,7 +133,6 @@ def rungroqflowabunch():
         def forward(self, a, b):
             return torch.matmul(a,b)
 
-
     inputsone = {"a": torch.from_numpy(m1_data[0]), "b": torch.from_numpy(m2_data[0])}
     inputs = [{"a": torch.from_numpy(a), "b": torch.from_numpy(b)} for a, b in zip(m1_data, m2_data)]
 
@@ -181,7 +180,7 @@ def print_iop_stats(iopf):
     cycles = int(re.findall("Program is (\S+)", p)[0])
     compute_usec = float(cycles)*1e-3
     print('[[Cycles reported by iop-utils]]')
-    #print(f'{iopf}:')
+    print(f'  {iopf}')
     print(f'  cycles={cycles}')
     print(f'  usec={compute_usec}')
 
@@ -196,6 +195,7 @@ def rungroq_nonblocking():
     print('[[Groq nonblocking]]')
     shim = groq.runtime.DriverShim()
     dptr = shim.next_available_device()
+    #dptr = shim.get_device("/dev/groqA5.pci")
     dptr.open() # open and lock the card
     prog = runtime.IOProgram(iop_file)
     dptr.load(prog[0])
@@ -285,9 +285,9 @@ def rungroq_tsprunner():
     perinvocation = np.mean(ets)
     print(f'  Per invocation [usec]: {perinvocation:.3f}')
 
-rungroq_tsprunner()
+#rungroq_tsprunner()
 rungroq_nonblocking()
-rungroqflowabunch()
+#rungroqflowabunch()
 
 print('Done')
 sys.exit(0)
