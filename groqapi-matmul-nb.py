@@ -2,16 +2,17 @@
 
 import torch
 import numpy as np
-import time, sys
 import groq.api as g
 import groq.runner.tsp as tsp
 import groq.api.nn as nn
+import time, sys, os, re
+import subprocess
 
-N=2
-M=300
-L=300
+N=1
+M=1024
+L=3000
 
-NREPS = 16
+NREPS = 1000
 M1shape = (N, M)
 M2shape = (M, L) # non-transposed shape
 m1_data = []
@@ -56,7 +57,18 @@ def rungroq_nonblocking(devfn=None):
     result = top(matrix1, matrix2, time=0)
     iop_file = g.compile(base_name="mmbench", result_tensor=result)
 
-    
+    #
+    #g.write_visualizer_data("mmbench")
+
+    p = subprocess.check_output(['iop-utils', 'stats', iop_file], encoding='utf8')
+    cycles = int(re.findall("Program is (\S+)", p)[0])
+    compute_usec = float(cycles)*1e-3/0.9 # 900MHz
+    print('[[Cycles reported by iop-utils]]')
+    print(f'  {iop_file}')
+    print(f'  cycles={cycles}')
+    print(f'  usec={compute_usec}')
+
+
     print('[[Groq nonblocking]]')
     shim = groq.runtime.DriverShim()
     if devfn:
@@ -141,5 +153,6 @@ if __name__ == "__main__":
         devfn = sys.argv[1]
 
     rungroq_nonblocking(devfn)
-    
+    print(f"L={L}")
+
     sys.exit(0)

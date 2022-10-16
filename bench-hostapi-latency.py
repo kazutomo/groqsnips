@@ -21,14 +21,14 @@ import subprocess
 #
 # default settings
 #
-N=2
-M=300
-L=300
-T=16
+N=128
+M=128
+L=128
+T=1000
 
 opdict = {}
 
-if len(sys.argv) > 0:
+if len(sys.argv) > 1:
     for s in sys.argv[1:]:
         m = re.search(r"([NMLT])=([0-9]+)", s)
         if m:
@@ -178,7 +178,7 @@ iop_file = g.compile(base_name="mmbench", result_tensor=result)
 def print_iop_stats(iopf):
     p = subprocess.check_output(['iop-utils', 'stats', iopf], encoding='utf8')
     cycles = int(re.findall("Program is (\S+)", p)[0])
-    compute_usec = float(cycles)*1e-3
+    compute_usec = float(cycles)*1e-3/0.9  # 900MHz
     print('[[Cycles reported by iop-utils]]')
     print(f'  {iopf}')
     print(f'  cycles={cycles}')
@@ -285,9 +285,9 @@ def rungroq_tsprunner():
     perinvocation = np.mean(ets)
     print(f'  Per invocation [usec]: {perinvocation:.3f}')
 
-#rungroq_tsprunner()
+rungroq_tsprunner()
 rungroq_nonblocking()
-#rungroqflowabunch()
+rungroqflowabunch()
 
 print('Done')
 sys.exit(0)
