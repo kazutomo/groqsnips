@@ -9,7 +9,7 @@ Tested with GroqWare Suite version 0.9.0
 
 To run the benchmark, simply type:
 
-     $ ./bench-hostapis-matmal.py N=1 M=320 L=300
+     $ ./bench-hostapi-latency.py N=1 M=320 L=300
      [Params]
      N=1
      M=320
