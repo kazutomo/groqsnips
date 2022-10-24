@@ -1,6 +1,6 @@
 # groqsnips
 
-This repository includes my groq snippets for learning, testing and benchmarking purposes.
+This repository includes a collection of small codes for learning, testing and benchmarking Groq accelerator cards.
 
 To enable the Groq environment, check
 https://github.com/groq/groqflow/blob/main/docs/install.md
