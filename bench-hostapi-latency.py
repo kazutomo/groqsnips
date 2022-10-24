@@ -131,10 +131,18 @@ def rungroqflowabunch():
         def __init__(self):
             super(SQMM, self).__init__()
         def forward(self, a, b):
-            return torch.matmul(a,b)
+            return torch.matmul(a, b)
 
-    inputsone = {"a": torch.from_numpy(m1_data[0]), "b": torch.from_numpy(m2_data[0])}
-    inputs = [{"a": torch.from_numpy(a), "b": torch.from_numpy(b)} for a, b in zip(m1_data, m2_data)]
+    # Note:
+    # With torch 1.12.1, 16-bit datatype causes the following error while torch 1.10.2 had no problem with 16-bit datatype
+    #    return torch.matmul(a, b)
+    #    RuntimeError: "addmm_impl_cpu_" not implemented for 'Half'
+    # A quick workaround is to use 32-bit datatype.
+
+    inputsone = {"a": torch.from_numpy(m1_data[0].astype(np.float32)), "b": torch.from_numpy(m2_data[0].astype(np.float32))}
+    inputs = [{"a": torch.from_numpy(a.astype(np.float32)), "b": torch.from_numpy(b.astype(np.float32))} for a, b in zip(m1_data, m2_data)]
+    # inputsone = {"a": torch.from_numpy(m1_data[0]), "b": torch.from_numpy(m2_data[0])}
+    # inputs = [{"a": torch.from_numpy(a), "b": torch.from_numpy(b)} for a, b in zip(m1_data, m2_data)]
 
     sqmm = SQMM()
 
@@ -144,7 +152,8 @@ def rungroqflowabunch():
     et = time.time() - st
 
     for a, b, res in zip(m1_data, m2_data, groq_outputs):
-        pytorch_outputs = sqmm(a=torch.from_numpy(a), b=torch.from_numpy(b))
+        pytorch_outputs = sqmm(a=torch.from_numpy(a.astype(np.float32)), b=torch.from_numpy(b.astype(np.float32)))
+        # pytorch_outputs = sqmm(a=torch.from_numpy(a), b=torch.from_numpy(b))
         v = np.allclose(pytorch_outputs, res,
                         rtol=1e-2, atol=1e-2, equal_nan=True)
         if v == False:
