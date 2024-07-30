@@ -172,7 +172,7 @@ matrix2 = g.input_tensor(shape=M2Tshape, dtype=g.float16, name="matrix2")
 class TopLevel(g.Component):  # Create our top level component
     def __init__(self):
         super().__init__()
-        self.mm = nn.MatMul(name="MatMul", buffer_output=True)
+        self.mm = nn.MatMul(name="MatMul", buffer_output=True, arith_mode_warmup=True)
 
     def build(self, mat1_mt, mat2_mt, time=0):
         with g.ResourceScope(name="mmscope", time=0) as mmscope:
